@@ -1,0 +1,75 @@
+* Las Vegas Functional Programming User Group 4/16/2020
+
+* CodeWars Kata "Expression Matter"
+
+* F#
+
+** Key Points about F#
+ - Can almost be called "Ocaml on .NET"
+ - Strongly typed.
+ - Uses type-inference.
+ - "Functional First" - meaning it makes it easy to code in a functional way, but isn't limited to just FP, and also supports OOP.
+ - Some signifcant whitespace 
+   - But less strict than Python
+
+** Interop
+- Runs on top of the clr, can interop with any other .net language, including C#
+
+** Syntax Examples
+#+BEGIN_SRC ml
+// lambda
+let doubleNumbers = (fun x -> x * 2)
+// List
+let numbers = [1;2;3;]
+// map list elements
+numbers |> List.map (fun n -> n * 2)
+
+// recursive function
+let rec getMax list =
+  match list when
+  | [] -> 0
+  | first::rest -> max first (getMax rest)
+
+// use function in a pipeline
+numbers
+|> getMax
+|> printfn "%d"
+#+END_SRC
+
+* Common Lisp
+** Key Points about CL
+ - Second oldest high-level programming langauge after Fortran.
+ - Dynamically typed.
+   - But also has CLOS, which might mitigate that.
+ - Doesn't claim to be FP, but one of first (the first) to support typical FP constructs.
+   - CL can support FP and other styles
+ - Extremely uniform syntax
+
+** Syntax Examples
+#+BEGIN_SRC lisp
+;; function
+(defun doubleNumbers (x) (* x 2))
+(doubleNumbers 3)
+;; lambda
+(setf doubleNumbersLambda #'(lambda (x) (* x 2)))
+(funcall doubleNumbersLambda 5)
+;; List - equivalent results
+(setf numbers (list 1 2 3))
+(setf numbers '(1 2 3))
+; car means "first", cdr means "rest"
+(car (numbers))
+(equal (car (numbers)) (first (numbers))
+(cdr (numbers))
+(equal (cdr (numbers)) (rest (numbers))
+
+;; map list
+(mapcar #'(lambda (e) (* e 2) numbers)
+(mapcar doubleNumbersLambda numbers)
+
+;; recursive function
+(defun get-max (list)
+  (cond ((null list) 0)
+        (t (max (car list) (get-max (cdr list))))))
+
+(format t "~d" (get-max list))
+#+END_SRC
