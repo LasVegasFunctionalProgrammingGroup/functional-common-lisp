@@ -1,0 +1,58 @@
+* Getting Lisp to Javascript
+
+* Basic Idea
+- From Lisp, generate Javascript that generates HTML
+- In other words, if I get data from a REST call I make in Javascript, I want to abstract 
+how the information from that list is rendered.
+
+** One way to do it in just Javascript
+#+BEGIN_SRC javascript
+people.map(person => {
+  var sampleTd = document.createElement("td")
+  var node = document.createTextNode(person.name)
+  sampleTd.appendChild(node)
+  var sampleTr = document.createElement("tr")
+  sampleTr.appendChild(sampleTd)
+  var sampleTable = document.createElement("table")
+  sampleTable.appendChild(sampleTr)
+})
+#+END_SRC
+
+** Another way: using jsx in React 
+#+BEGIN_SRC javascript
+people.map(person => {
+  return (
+    <tr key={person.name}><td>{person.name}</td></tr>
+  )
+})
+#+END_SRC
+
+** With Lisp
+- Using cl-who to generate HTML - [[https://edicl.github.io/cl-who/][info here (available via quicklisp)]]
+- Using ParenScript to generate Javascript - [[https://common-lisp.net/project/parenscript/reference.html#ssection-strings-chars][reference here (available via quicklisp)]]
+
+#+BEGIN_SRC lisp
+(defun render-name-list ()
+  (ps
+    (defun render-name-list (names)
+      (chain names (map
+                    #'(lambda (name)
+                        (let ((sample-table (chain document (get-element-by-id "sample-table")))
+                              (sample-tr (chain document (create-element "tr")))
+                              (sample-td (chain document (create-element "td")))
+                              (sample-node (chain document (create-text-node (@ name name)))))
+                          (chain sample-td (append-child sample-node))
+                          (chain sample-tr (append-child sample-td))
+                          (chain sample-table (append-child sample-tr)))))))))
+#+END_SRC
+
+*** Ideal
+
+Something like this:
+
+#+BEGIN_SRC lisp
+(mapcar
+ #'(lambda (person)
+ (tr (td (person name)))) 
+ people)
+#+END_SRC
