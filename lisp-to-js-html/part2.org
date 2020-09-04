@@ -1,0 +1,56 @@
+* Getting Lisp to Javascript - Part 2
+
+*** Ideal - revisited
+
+Something like this:
+
+#+BEGIN_SRC lisp
+(ps ; using parenscript
+ (chain person-list (map #'(lambda (person)
+  (with-macro-to-convert-lisp-into-js
+   (tr (td (name person))))))))
+#+END_SRC
+
+*** Revised macro
+#+BEGIN_SRC lisp
+(defun define-ps-with-html-macro ()
+  (ps
+    (defun create-an-element (parent-element tag)
+      (let ((new-element (chain document (create-element tag))))
+        (chain parent-element (append-child new-element))
+        new-element))
+    (defun set-an-attribute (parent-element key value)
+      (chain parent-element (set-attribute key value)))
+    (defun set-text-node (parent-element text)
+      (let ((a-text-node (chain document (create-text-node text))))
+        (chain parent-element (append-child a-text-node))))
+    (defmacro with-html-elements (elements)
+      (labels
+          ((process-tag-r (element &optional (parent nil parent-supplied-p))
+             (let* ((tag (car element))
+                    (parent-element (gensym (concatenate 'string (string-downcase tag) "Element")))
+                    (parent-element-parameter (if parent-supplied-p parent (make-symbol "parent-element"))))
+               (cons
+                `(let ((,parent-element (create-an-element ,parent-element-parameter ,(string tag)))))
+                (mapcar
+                 #'(lambda (e)
+                     (cond
+                       ((cons-pair-p e)
+                        `(set-an-attribute ,parent-element ,(string (car e))  ,(string (cdr e))))
+                       ((stringp e)
+                        `(set-text-node ,parent-element ,e))
+                       ((listp e)
+                        `(progn
+                           ,@(process-tag-r e parent-element)))
+                       ((symbolp e)
+                        `(set-text-node ,parent-element ,e))))
+                 (cdr element))))))
+        `(progn ,@(process-tag-r elements))))))
+#+END_SRC
+
+*** Next steps
+- [ ] See if this approach works well with forms (especially large ones)
+- [ ] Add tests to prevent regressions
+  - Many testing frameworks to choose from, or DIY?
+- [ ] reader macro for angle brackets <> (not sure if parenscript supports it, though...?)
+- [ ] probably also need a reader macro for inline code similar to react's use of ={{code}}= construct

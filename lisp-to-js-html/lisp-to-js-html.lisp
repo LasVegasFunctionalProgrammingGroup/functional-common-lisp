@@ -1,3 +1,4 @@
+
 (ql:quickload '(cl-who hunchentoot parenscript cl-json))
 
 (defpackage :samples-webapp
@@ -44,33 +45,58 @@
           (chain o-req (open "GET" "/person"))
           (chain o-req (send)))))))
 
-(defmacro render-people-list->js&html-table (list-name)
-  "parenscript macro to output table rows based on list"
-  (let ((table-element (make-symbol (concatenate 'string list-name "-table")))
-        (row-element (make-symbol (concatenate 'string list-name "-row")))
-        (name-cell-element (make-symbol (concatenate 'string list-name "-name-cell")))
-        (name-text-node (make-symbol (concatenate 'string list-name "-name-text-node")))
-        (karma-cell-element (make-symbol (concatenate 'string list-name "-karma-cell")))
-        (karma-text-node (make-symbol (concatenate 'string list-name "-karma-text-node"))))
-    `(ps
-       (defun render-people-list (people)
-         (chain people (map
-                        #'(lambda (person)
-                            (let ((,table-element (chain document (get-element-by-id "sample-table")))
-                                  (,row-element (chain document (create-element "tr")))
-                                  (,name-cell-element (chain document (create-element "td")))
-                                  (,name-text-node (chain document (create-text-node (@ person name))))
-                                  (,karma-cell-element (chain document (create-element "td")))
-                                  (,karma-text-node (chain document (create-text-node (@ person karma)))))
-                              (chain ,name-cell-element (append-child ,name-text-node))
-                              (chain ,karma-cell-element (append-child ,karma-text-node))
-                              (chain ,row-element (append-child ,name-cell-element))
-                              (chain ,row-element (append-child ,karma-cell-element))
-                              (chain ,table-element (append-child ,row-element))))))))))
+(defun cons-pair-p (possible-cons)
+  (or
+   (and (consp possible-cons) (atom (cdr possible-cons)))
+   (and (consp possible-cons) (listp (cdr possible-cons)) (equal '~f (cadr possible-cons)))))
 
+(defun define-ps-with-html-macro ()
+  "parenscript macro to output table rows based on list"
+  (ps
+    (defun create-an-element (parent-element tag)
+      (let ((new-element (chain document (create-element tag))))
+        (chain parent-element (append-child new-element))
+        new-element))
+    (defun set-an-attribute (parent-element key value)
+      (chain parent-element (set-attribute key value)))
+    (defun set-text-node (parent-element text)
+      (let ((a-text-node (chain document (create-text-node text))))
+        (chain parent-element (append-child a-text-node))))
+    (defmacro with-html-elements (elements)
+      (labels
+          ((process-tag-r (element &optional (parent nil parent-supplied-p))
+             (let* ((tag (car element))
+                    (parent-element (gensym (concatenate 'string (string-downcase tag) "Element")))
+                    (parent-element-parameter (if parent-supplied-p parent (make-symbol "parent-element"))))
+               (cons
+                `(let ((,parent-element (create-an-element ,parent-element-parameter ,(string tag)))))
+                (mapcar
+                 #'(lambda (e)
+                     (cond
+                       ((cons-pair-p e)
+                        `(set-an-attribute ,parent-element ,(string (car e))  ,(string (cdr e))))
+                       ((stringp e)
+                        `(set-text-node ,parent-element ,e))
+                       ((listp e)
+                        `(progn
+                           ,@(process-tag-r e parent-element)))
+                       ((symbolp e)
+                        `(set-text-node ,parent-element ,e))))
+                 (cdr element))))))
+        `(progn ,@(process-tag-r elements))))))
+  
 (defun render-people-list ()
-  "wrapper around macro to generate Javascript"
-  (ps (render-people-list->js&html-table "people")))
+  (ps
+    (defun render-people-list (people)
+      (let* ((todo-list-table-body (chain document (get-element-by-id "sample-table-body")))
+             (parent-element todo-list-table-body))
+        (chain people (map
+                       #'(lambda (person)
+                           (let ((name (@ person name))
+                                 (karma (@ person karma)))
+                             (with-html-elements
+                                 (tr
+                                  (td name) (td karma)))))))))))
 
 (defun in-line-javascript ()
   "Javascript that doesn't live inside a function"
@@ -97,6 +123,7 @@
                    :href "/styles.css")
             (:script :type "text/javascript"
                      (str (stringify
+                           (define-ps-with-html-macro)
                            (render-people-list)
                            (get-people-list)
                            (in-line-javascript)))))
@@ -107,9 +134,10 @@
                         (:h4 "Click here to get a list of names"
                              (:button :id "get-people-btn" "Get People List")
                              (:table :id "sample-table" :border "1" :cellspacing "0" :cellpadding "5"
-                                     (:tr
-                                      (:td "Name")
-                                      (:td "Karma")))))))))))
+                                     (:thead
+                                      (:th "Name")
+                                      (:th "Karma")
+                                      (:tbody :id "sample-table-body")))))))))))
 
 (define-easy-handler (people-page :uri "/people") ()
   "url handler for people info page"
